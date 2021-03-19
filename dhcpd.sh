@@ -20,17 +20,28 @@
 TIMESTAMP=$(date +"%Y%m%d%H%M")
 DHCPDIR=/etc/dhcp
 
+function ROOT(){
+    if [ "$EUID" -ne 0 ]
+        then echo "Aquest script ha de ser executat com a root"
+        exit
+    fi
+}
+
 function COPY(){
-    cp $DHCPDIR/dhcpd.conf $DHCPDIR/dhcpd.conf.$TIMESTAMP
+    cp $DHCPDIR/dhcpd.conf $DHCPDIR/dhcpd.conf.$TIMESTAMP > /dev/null 2>&1 && echo "Copia de seguretat de dhcpd.conf [OK]" || echo "Copia de seguretat de dhcpd.conf [ERROR]"
+    echo -n "Prem enter per continuar... "
+    read pause
 }
 function USERINPUT(){
     clear
     echo -n "Introdueix el nom del domini: "
     read NOMDOMINI
-    echo -n "Direccio IP del Servidor: "
-    read SERVERIP
+    echo -n "Direccio IP del Servidor DNS: "
+    read DNSSERVER
     echo -n "Introdueix la Gateway per defecte: "
     read GATEWAY
+    echo -n "Introdueix la direccio broadcast: "
+    read BROADCAST
     echo -n "Introdueix el valor del temps de leasing per defecte: "
     read DEFLEASING
     echo -n "Introdueix el valor del temps de leasing màxim: "
@@ -48,8 +59,9 @@ function CHECK(){
     clear
     echo "Revisa la informació, gracies."
     echo "El nom del domini introduit es: $NOMDOMINI"
-    echo "La direcció IP del servidor es: $SERVERIP"
+    echo "La direcció IP del servidor DNS es: $DNSSERVER"
     echo "La Gateway per defecte introduida es: $GATEWAY"
+    echo "La direcció bradcast introduida es: $BROADCAST"
     echo "El valor del temps de leasing per defecte introduit es: $DEFLEASING"
     echo "El valor del temps de leasing màxim introduit es: $MAXLEASING"
     echo "La IP de subxarxa introduida es: $SUBNETIP"
@@ -69,16 +81,31 @@ function CHECK(){
 
 function CREATE_FILE(){
     echo -ne "#Generat per dhcpd.sh
+ddns-update-style none;
+
 subnet $SUBNETIP netmask $SUBNETMASK{
-    range $FIRSTIP $LASTIP>;
-    option domain-name-servers 8.8.8, 8.8.4.4;
+    range $FIRSTIP $LASTIP;
+    option domain-name-servers $DNSSERVER;
+    option domain-name \"$NOMDOMINI\";
+    option subnet-mask $NETMASK;
     option routers $GATEWAY;
-    option broadcast-address <broadcast>;
+    option broadcast-address $BROADCAST;
     default-lease-time $DEFLEASING;
     max-lease-time $MAXLEASING;
     }
-" > test.txt && echo "Fitxer Generat [OK]" || echo "Fitxer Generat [ERROR]"  
+" > $DHCPDIR/dhcpd.conf && echo "Fitxer Generat [OK]" || echo "Fitxer Generat [ERROR]"  
 }
+
+function RESTART_DHCP(){
+    systemctl restart isc-dhcp-server.service
+}
+    
+##########
+# MAIN
+##########
+    ROOT
+    COPY
     USERINPUT
     CHECK
     CREATE_FILE
+    RESTART_DHCP
