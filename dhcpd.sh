@@ -80,24 +80,29 @@ function CHECK(){
 }
 
 function CREATE_FILE(){
-    echo -ne "#Generat per dhcpd.sh
+    echo -n "#Generat per dhcpd.sh
 ddns-update-style none;
 
 subnet $SUBNETIP netmask $SUBNETMASK{
     range $FIRSTIP $LASTIP;
     option domain-name-servers $DNSSERVER;
     option domain-name \"$NOMDOMINI\";
-    option subnet-mask $NETMASK;
+    option subnet-mask $SUBNETMASK;
     option routers $GATEWAY;
     option broadcast-address $BROADCAST;
     default-lease-time $DEFLEASING;
     max-lease-time $MAXLEASING;
-    }
+}
 " > $DHCPDIR/dhcpd.conf && echo "Fitxer Generat [OK]" || echo "Fitxer Generat [ERROR]"  
 }
 
 function RESTART_DHCP(){
     systemctl restart isc-dhcp-server.service
+    if [[ "$?" == 0 ]];then
+    echo "Reinici DHCP [OK]"
+    else
+    echo "Reinici DHCP [ERROR]"
+    fi
 }
     
 ##########
